@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SecureOps SOC Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Icon sprite -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.7-4 3-9 3s-9-1.3-9-3"/><path d="M3 5v14c0 1.7 4 3 9 3s9-1.3 9-3V5"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></symbol>
+      <symbol id="i-ban" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/></symbol>
+      <symbol id="i-file" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+      <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 2 3 14h9l-1 8 10-12h-9z"/></symbol>
+      <symbol id="i-chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+      <symbol id="i-menu" viewBox="0 0 24 24"><path d="M3 12h18M3 6h18M3 18h18"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></symbol>
+    </defs>
+  </svg>
+
+  <div class="app">
+    <!-- ============ Sidebar ============ -->
+    <aside class="sidebar" id="sidebar">
+      <div class="logo">
+        <span class="logo-mark"><svg class="icon"><use href="#i-shield"/></svg></span>
+        <div><b>SecureOps</b><small>SOC Console</small></div>
+      </div>
+
+      <nav>
+        <div class="nav-title">Monitoring</div>
+        <a href="#dashboard" class="nav-link active" data-view="dashboard"><svg class="icon"><use href="#i-grid"/></svg>Dashboard</a>
+        <a href="#alerts" class="nav-link" data-view="alerts"><svg class="icon"><use href="#i-bell"/></svg>Alerts <span class="count" id="nav-alerts">0</span></a>
+        <a href="#logs" class="nav-link" data-view="logs"><svg class="icon"><use href="#i-file"/></svg>Log Explorer</a>
+        <div class="nav-title">Response</div>
+        <a href="#blocked" class="nav-link" data-view="blocked"><svg class="icon"><use href="#i-ban"/></svg>Blocked IPs <span class="count muted-count" id="nav-blocked">0</span></a>
+      </nav>
+
+      <div class="sidebar-foot">
+        <div class="sim-card">
+          <div class="sim-title"><svg class="icon"><use href="#i-zap"/></svg> Traffic simulator</div>
+          <p>Generates demo logs and attacks.</p>
+          <button class="btn btn-block" id="toggle-sim">Pause traffic</button>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ============ Main content ============ -->
+    <div class="content">
+      <header class="topbar">
+        <button class="icon-btn menu-btn" id="menu-btn" aria-label="Toggle menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div class="titles">
+          <h1 id="page-title">Security Overview</h1>
+          <p id="page-sub">Real-time view of events, detections and analyst activity</p>
+        </div>
+
+        <div class="top-actions">
+          <span class="threat threat-low" id="threat"><i></i><span id="threat-text">Threat level: Low</span></span>
+          <span class="live-pill" id="live-pill"><i class="dot"></i> Live</span>
+
+          <details class="dropdown" id="sim-menu">
+            <summary class="btn btn-primary"><svg class="icon"><use href="#i-zap"/></svg> Simulate attack <svg class="icon sm"><use href="#i-chevron"/></svg></summary>
+            <div class="menu">
+              <button data-sim="bruteforce">SSH brute force</button>
+              <button data-sim="portscan">Port scan</button>
+              <button data-sim="sqli">SQL injection</button>
+              <button data-sim="xss">Cross-site scripting</button>
+              <button data-sim="exfil">Data exfiltration</button>
+              <button data-sim="threatintel">Threat-intel hit</button>
+            </div>
+          </details>
+
+          <div class="user"><span class="avatar">SA</span><div><b>SOC Analyst</b><small id="clock"></small></div></div>
+        </div>
+      </header>
+
+      <main>
+        <!-- ===== Dashboard view ===== -->
+        <section class="view" id="view-dashboard">
+          <div class="kpis">
+            <div class="card kpi"><div class="kpi-icon blue"><svg class="icon"><use href="#i-bell"/></svg></div><div><div class="kpi-label">Open alerts</div><div class="kpi-value" id="k-open">0</div></div></div>
+            <div class="card kpi"><div class="kpi-icon red"><svg class="icon"><use href="#i-alert"/></svg></div><div><div class="kpi-label">Critical open</div><div class="kpi-value red-text" id="k-crit">0</div></div></div>
+            <div class="card kpi"><div class="kpi-icon green"><svg class="icon"><use href="#i-activity"/></svg></div><div><div class="kpi-label">Events (last hour)</div><div class="kpi-value" id="k-hour">0</div></div></div>
+            <div class="card kpi"><div class="kpi-icon purple"><svg class="icon"><use href="#i-database"/></svg></div><div><div class="kpi-label">Total events</div><div class="kpi-value" id="k-total">0</div></div></div>
+            <div class="card kpi"><div class="kpi-icon orange"><svg class="icon"><use href="#i-list"/></svg></div><div><div class="kpi-label">Total alerts</div><div class="kpi-value" id="k-alerts">0</div></div></div>
+            <div class="card kpi"><div class="kpi-icon slate"><svg class="icon"><use href="#i-ban"/></svg></div><div><div class="kpi-label">Blocked IPs</div><div class="kpi-value" id="k-blocked">0</div></div></div>
+          </div>
+
+          <div class="grid">
+            <div class="card span-8"><div class="card-head"><h2>Events &amp; alerts over time</h2><span class="hint">Last 30 minutes</span></div><div class="chart-box"><canvas id="c-timeline"></canvas></div></div>
+            <div class="card span-4"><div class="card-head"><h2>Alerts by severity</h2><span class="hint">Not resolved</span></div><div class="chart-box"><canvas id="c-severity"></canvas></div></div>
+            <div class="card span-6"><div class="card-head"><h2>Top attacking IPs</h2><span class="hint">By alert count</span></div><div class="chart-box short"><canvas id="c-ips"></canvas></div></div>
+            <div class="card span-6"><div class="card-head"><h2>Detections by rule</h2><span class="hint">All time</span></div><div class="chart-box short"><canvas id="c-rules"></canvas></div></div>
+
+            <div class="card span-12">
+              <div class="card-head"><h2>Latest open alerts</h2><a href="#alerts" class="link" data-view="alerts">View all alerts &rarr;</a></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Time</th><th>Severity</th><th>Rule</th><th>Source IP</th><th>MITRE</th><th>Status</th><th class="right">Actions</th></tr></thead>
+                  <tbody id="recent-body"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Alerts view ===== -->
+        <section class="view hidden" id="view-alerts">
+          <div class="card">
+            <div class="card-head">
+              <h2>Alert queue</h2>
+              <div class="filters">
+                <select id="f-status">
+                  <option value="">All statuses</option>
+                  <option value="open" selected>Open</option>
+                  <option value="acknowledged">Acknowledged</option>
+                  <option value="resolved">Resolved</option>
+                </select>
+                <select id="f-severity">
+                  <option value="">All severities</option>
+                  <option value="critical">Critical</option><option value="high">High</option>
+                  <option value="medium">Medium</option><option value="low">Low</option>
+                </select>
+              </div>
+            </div>
+            <div class="table-wrap tall">
+              <table>
+                <thead><tr><th>Time</th><th>Severity</th><th>Rule</th><th>Source IP</th><th>Description</th><th>MITRE</th><th>Status</th><th class="right">Actions</th></tr></thead>
+                <tbody id="alerts-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Logs view ===== -->
+        <section class="view hidden" id="view-logs">
+          <div class="card">
+            <div class="card-head">
+              <h2>Log explorer</h2>
+              <div class="searchbox"><svg class="icon sm"><use href="#i-search"/></svg><input id="f-search" type="search" placeholder="Search IP, user or message..."></div>
+            </div>
+            <div class="table-wrap tall">
+              <table>
+                <thead><tr><th>Time</th><th>Source</th><th>Event type</th><th>Source IP</th><th>User</th><th>Port</th><th>Message</th></tr></thead>
+                <tbody id="logs-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== Blocked IPs view ===== -->
+        <section class="view hidden" id="view-blocked">
+          <div class="card">
+            <div class="card-head">
+              <h2>Firewall block list</h2>
+              <form class="filters" id="block-form">
+                <input id="f-blockip" type="text" placeholder="IP address, e.g. 203.0.113.9" autocomplete="off">
+                <button class="btn btn-danger" type="submit">Block IP</button>
+              </form>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead><tr><th>IP address</th><th>Blocked at</th><th>Reason</th><th class="right">Actions</th></tr></thead>
+                <tbody id="blocked-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
